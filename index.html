@@ -2,196 +2,153 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <title>LangPro Enterprise v4.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangPro Premium | Voice Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
-        
-        body {
-            font-family: 'Space Grotesk', sans-serif;
-            background: #020617;
-            color: #e2e8f0;
-            overflow: hidden;
-        }
-
-        .enterprise-glass {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .audio-bar {
-            width: 4px;
-            background: #6366f1;
-            margin: 0 2px;
-            border-radius: 2px;
-            transition: height 0.1s ease;
-        }
-
-        .msg-bubble {
-            animation: popIn 0.3s cubic-bezier(0.26, 1.36, 0.4, 1.29);
-        }
-
-        @keyframes popIn {
-            from { opacity: 0; transform: scale(0.8) translateY(20px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
+        body { background: #020617; font-family: 'Plus Jakarta Sans', sans-serif; color: white; }
+        .glass-card { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
+        .mic-active { box-shadow: 0 0 20px rgba(34, 197, 94, 0.4); background: #16a34a !important; }
+        .wave { width: 5px; background: #6366f1; border-radius: 10px; transition: height 0.1s; }
     </style>
 </head>
-<body class="h-screen w-screen flex items-center justify-center p-6">
+<body class="h-screen flex items-center justify-center p-4">
 
-    <div id="login-view" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-6">
-        <div class="enterprise-glass p-10 rounded-[40px] max-w-md w-full text-center shadow-2xl">
-            <div class="mb-6 inline-block p-4 bg-indigo-600 rounded-3xl rotate-12">
-                <i data-lucide="mic-2" class="w-10 h-10 text-white"></i>
-            </div>
-            <h1 class="text-4xl font-bold mb-2 tracking-tight">LangPro <span class="text-indigo-500 text-lg">v4.0</span></h1>
-            <p class="text-slate-500 mb-8">Professional ovozli muloqot tizimi</p>
-            
-            <input id="in-name" type="text" placeholder="Ismingiz" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-2xl mb-4 outline-none focus:ring-2 ring-indigo-500">
-            <select id="in-level" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-2xl mb-8 outline-none text-indigo-400 font-bold">
-                <option value="A1">A1 - Beginner</option>
-                <option value="B2">B2 - Intermediate</option>
-                <option value="C1">C1 - Advanced</option>
-            </select>
-            
-            <button onclick="startSession()" class="w-full bg-indigo-600 hover:bg-indigo-500 p-5 rounded-2xl font-bold transition-all transform active:scale-95 shadow-xl shadow-indigo-600/20">
-                Suhbatni boshlash
-            </button>
+    <div id="authBox" class="glass-card p-12 rounded-[48px] w-full max-w-md text-center shadow-2xl scale-in">
+        <div class="mb-8 inline-flex p-5 bg-indigo-600 rounded-3xl rotate-12">
+            <i data-lucide="mic" class="w-12 h-12 text-white"></i>
         </div>
+        <h1 class="text-4xl font-extrabold mb-2 tracking-tight">LangPro <span class="text-indigo-500 italic">v5.0</span></h1>
+        <p class="text-slate-500 mb-10 font-medium">Premium Language Exchange</p>
+        
+        <input id="userName" type="text" placeholder="Ismingiz" class="w-full bg-slate-900/50 border border-slate-700/50 p-5 rounded-2xl mb-4 outline-none focus:ring-2 ring-indigo-500 transition-all font-semibold">
+        <select id="userLevel" class="w-full bg-slate-900/50 border border-slate-700/50 p-5 rounded-2xl mb-8 outline-none text-indigo-400 font-bold appearance-none">
+            <option value="A1">Level A1 - Beginner</option>
+            <option value="B2">Level B2 - Intermediate</option>
+            <option value="C1">Level C1 - Advanced</option>
+        </select>
+        
+        <button onclick="launchApp()" class="w-full bg-indigo-600 hover:bg-indigo-500 p-5 rounded-2xl font-bold text-lg shadow-xl shadow-indigo-600/30 transition-all active:scale-95">
+            Ulanish
+        </button>
     </div>
 
-    <div id="main-view" class="hidden w-full max-w-6xl h-full enterprise-glass rounded-[50px] flex overflow-hidden shadow-2xl">
-        
-        <aside class="w-24 lg:w-72 border-r border-white/5 p-8 flex flex-col">
-            <div class="flex items-center gap-3 mb-12">
-                <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center"><i data-lucide="zap" class="w-5 h-5"></i></div>
-                <span class="font-bold text-xl hidden lg:block">LangPro</span>
-            </div>
-            
-            <nav class="flex-1 space-y-4">
-                <div class="p-4 rounded-2xl bg-indigo-600/10 text-indigo-400 flex items-center gap-4"><i data-lucide="message-circle"></i> <span class="hidden lg:block font-bold">Chat</span></div>
-                <div class="p-4 rounded-2xl hover:bg-white/5 text-slate-500 flex items-center gap-4 cursor-not-allowed"><i data-lucide="users"></i> <span class="hidden lg:block">Guruhlar</span></div>
-            </nav>
-
-            <div class="mt-auto p-4 bg-slate-900/50 rounded-3xl flex items-center gap-4">
-                <div id="my-avatar" class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white">?</div>
-                <div class="hidden lg:block overflow-hidden">
-                    <p id="my-name-display" class="font-bold text-sm truncate">User</p>
-                    <p class="text-[10px] text-indigo-400">ONLINE</p>
-                </div>
-            </div>
-        </aside>
-
-        <main class="flex-1 flex flex-col relative bg-slate-950/20">
+    <div id="mainApp" class="hidden w-full max-w-6xl h-[90vh] glass-card rounded-[50px] flex overflow-hidden">
+        <main class="flex-1 flex flex-col relative">
             <header class="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/20">
-                <div class="flex items-center gap-4">
-                    <div id="p-status" class="w-3 h-3 rounded-full bg-slate-600 animate-pulse"></div>
-                    <h2 id="p-name" class="font-bold text-xl">Suhbatdosh qidirilmoqda...</h2>
+                <div class="flex items-center gap-5">
+                    <div id="statusPulse" class="w-4 h-4 rounded-full bg-slate-700"></div>
+                    <div>
+                        <h2 id="partnerName" class="font-extrabold text-2xl tracking-tight text-slate-400">Sherik qidirilmoqda...</h2>
+                        <p class="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Secure Voice Tunnel</p>
+                    </div>
                 </div>
                 
-                <div class="flex gap-4 items-center">
-                    <div id="visualizer" class="hidden flex items-end h-8 gap-1 px-4 border-r border-white/10">
-                        <div class="audio-bar h-2"></div>
-                        <div class="audio-bar h-5"></div>
-                        <div class="audio-bar h-3"></div>
+                <div class="flex items-center gap-4">
+                    <div id="visualizer" class="hidden flex items-end h-10 gap-1 px-6 border-r border-white/10 mr-4">
+                        <div class="wave h-2"></div><div class="wave h-6"></div><div class="wave h-4"></div><div class="wave h-8"></div>
                     </div>
-                    <button id="mic-btn" disabled onclick="toggleMic()" class="w-14 h-14 rounded-2xl bg-red-500/20 text-red-500 flex items-center justify-center transition-all hover:scale-105 border border-red-500/30">
-                        <i data-lucide="mic-off" id="mic-icon"></i>
+                    <button id="micToggle" disabled onclick="handleMic()" class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center border border-white/5 hover:bg-slate-700 transition-all">
+                        <i data-lucide="mic-off" id="micIcon" class="w-7 h-7 text-red-500"></i>
                     </button>
-                    <button onclick="location.reload()" class="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center hover:bg-white/10"><i data-lucide="log-out"></i></button>
+                    <button onclick="location.reload()" class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center border border-white/5"><i data-lucide="log-out"></i></button>
                 </div>
             </header>
 
-            <div id="chat-box" class="flex-1 overflow-y-auto p-8 space-y-6">
-                <div id="loader" class="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
-                    <div class="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-                    <p>Global tarmoqdan sherik qidirilmoqda...</p>
+            <div id="chatDisplay" class="flex-1 overflow-y-auto p-10 space-y-6 bg-slate-950/20">
+                <div id="loader" class="h-full flex flex-col items-center justify-center text-center">
+                    <div class="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-6"></div>
+                    <h3 class="text-xl font-bold">Global Matchmaking...</h3>
+                    <p class="text-slate-500">Sizga eng mos keluvchi suhbatdosh qidirilmoqda.</p>
                 </div>
             </div>
 
-            <div class="p-8">
-                <div class="enterprise-glass p-2 rounded-[30px] flex gap-4 shadow-2xl border-white/10">
-                    <input id="chat-input" disabled type="text" placeholder="Xabaringizni yozing..." class="flex-1 bg-transparent px-6 py-4 outline-none text-lg">
-                    <button id="send-btn" disabled onclick="sendMsg()" class="bg-indigo-600 hover:bg-indigo-500 text-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-all active:scale-90">
+            <footer class="p-10">
+                <div class="glass-card p-3 rounded-[32px] flex gap-4 shadow-2xl">
+                    <input id="msgInput" disabled type="text" placeholder="Xabaringizni yozing..." class="flex-1 bg-transparent px-6 py-4 outline-none text-lg">
+                    <button onclick="sendMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white w-16 h-16 rounded-[24px] flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-all">
                         <i data-lucide="send"></i>
                     </button>
                 </div>
-            </div>
+            </footer>
         </main>
     </div>
 
-    <div id="audio-bridge" class="hidden"></div>
+    <div id="audioHost" class="hidden"></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         lucide.createIcons();
         const socket = io();
-        let pc, localStream, isMuted = true;
+        let pc, localStream, audioContext, isMuted = true;
 
-        const dom = {
-            login: document.getElementById('login-view'),
-            app: document.getElementById('main-view'),
-            chat: document.getElementById('chat-box'),
-            mic: document.getElementById('mic-btn'),
-            input: document.getElementById('chat-input'),
-            send: document.getElementById('send-btn')
-        };
-
-        // --- SESSION LOGIC ---
-        async function startSession() {
-            const name = document.getElementById('in-name').value;
-            const level = document.getElementById('in-level').value;
-            if(!name) return alert("Ismingizni kiriting!");
+        async function launchApp() {
+            const name = document.getElementById('userName').value;
+            const level = document.getElementById('userLevel').value;
+            if(!name) return;
 
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+                });
                 localStream.getAudioTracks()[0].enabled = false;
-                
-                document.getElementById('my-name-display').innerText = name;
-                document.getElementById('my-avatar').innerText = name[0].toUpperCase();
-                
-                dom.login.classList.add('hidden');
-                dom.app.classList.remove('hidden');
-                
+
+                document.getElementById('authBox').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
                 socket.emit('register_user', { name, level });
             } catch (e) {
-                alert("Mikrofonga ruxsat bermasangiz ovoz ishlamaydi!");
+                alert("Mikrofon ruxsati rad etildi!");
             }
         }
 
-        // --- WEBRTC ENGINE ---
-        socket.on('match_found', async (data) => {
+        socket.on('match_found', (data) => {
             document.getElementById('loader').classList.add('hidden');
-            document.getElementById('p-name').innerText = data.partner.name;
-            document.getElementById('p-status').classList.replace('bg-slate-600', 'bg-emerald-500');
+            document.getElementById('partnerName').innerText = data.partner.name;
+            document.getElementById('partnerName').classList.replace('text-slate-400', 'text-white');
+            document.getElementById('statusPulse').classList.replace('bg-slate-700', 'bg-emerald-500');
+            document.getElementById('statusPulse').classList.add('animate-pulse');
+            document.getElementById('msgInput').disabled = false;
+            document.getElementById('micToggle').disabled = false;
             
-            dom.input.disabled = false;
-            dom.send.disabled = false;
-            dom.mic.disabled = false;
-
-            initiateRTC(data.role === 'initiator');
+            setupRealTimeVoice(data.role === 'initiator');
         });
 
-        async function initiateRTC(isInitiator) {
+        async function setupRealTimeVoice(isInitiator) {
+            // Wake up Audio Context for browser bypass
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
             pc = new RTCPeerConnection({
-                iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
             });
 
             localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
-            pc.ontrack = (e) => {
-                let remoteAudio = document.getElementById('remote-audio');
+            pc.ontrack = (event) => {
+                let remoteAudio = document.getElementById('remoteEl');
                 if(!remoteAudio) {
                     remoteAudio = document.createElement('audio');
-                    remoteAudio.id = 'remote-audio';
+                    remoteAudio.id = 'remoteEl';
                     remoteAudio.autoplay = true;
-                    document.getElementById('audio-bridge').appendChild(remoteAudio);
+                    remoteAudio.setAttribute('playsinline', 'true');
+                    document.getElementById('audioHost').appendChild(remoteAudio);
                 }
-                remoteAudio.srcObject = e.streams[0];
+                remoteAudio.srcObject = event.streams[0];
+                
+                // Forces playback on interaction if blocked
+                remoteAudio.play().catch(() => {
+                    window.addEventListener('click', () => {
+                        remoteAudio.play();
+                        audioContext.resume();
+                    }, { once: true });
+                });
+
                 document.getElementById('visualizer').classList.remove('hidden');
-                animateBars();
+                animateVisualizer();
             };
 
             pc.onicecandidate = (e) => {
@@ -207,67 +164,64 @@
 
         socket.on('signal', async (data) => {
             if(!pc) return;
-            try {
-                if(data.offer) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-                    socket.emit('signal', { answer });
-                } else if(data.answer) {
-                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                } else if(data.candidate) {
-                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-                }
-            } catch(e) { console.error("RTC Error", e); }
+            if(data.offer) {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('signal', { answer });
+            } else if(data.answer) {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if(data.candidate) {
+                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
         });
 
-        // --- CONTROLS ---
-        function toggleMic() {
+        function handleMic() {
             isMuted = !isMuted;
             localStream.getAudioTracks()[0].enabled = !isMuted;
+            const btn = document.getElementById('micToggle');
+            const icon = document.getElementById('micIcon');
             
-            const icon = document.getElementById('mic-icon');
-            dom.mic.className = isMuted ? 
-                "w-14 h-14 rounded-2xl bg-red-500/20 text-red-500 flex items-center justify-center border border-red-500/30" : 
-                "w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40";
-            
-            icon.setAttribute('data-lucide', isMuted ? 'mic-off' : 'mic');
+            if(!isMuted) {
+                btn.classList.add('mic-active');
+                icon.classList.replace('text-red-500', 'text-white');
+                icon.setAttribute('data-lucide', 'mic');
+            } else {
+                btn.classList.remove('mic-active');
+                icon.classList.replace('text-white', 'text-red-500');
+                icon.setAttribute('data-lucide', 'mic-off');
+            }
             lucide.createIcons();
+            if(audioContext) audioContext.resume();
         }
 
-        function sendMsg() {
-            const val = dom.input.value.trim();
-            if(!val) return;
-            socket.emit('message', val);
-            addMessage('Siz', val, true);
-            dom.input.value = '';
+        function sendMessage() {
+            const input = document.getElementById('msgInput');
+            if(input.value) {
+                socket.emit('message', input.value);
+                input.value = '';
+            }
         }
 
-        socket.on('message', d => addMessage(d.user, d.text, false));
+        socket.on('message', d => {
+            const chat = document.getElementById('chatDisplay');
+            const html = `<div class="p-6 rounded-3xl bg-slate-900/80 border border-white/5 max-w-[80%]">
+                <p class="text-[10px] text-indigo-400 font-bold mb-1 uppercase tracking-tighter">${d.sender} • ${d.time}</p>
+                <p class="text-lg">${d.text}</p>
+            </div>`;
+            chat.insertAdjacentHTML('beforeend', html);
+            chat.scrollTop = chat.scrollHeight;
+        });
 
-        function addMessage(user, text, isMe) {
-            const html = `
-                <div class="flex ${isMe ? 'justify-end' : 'justify-start'} msg-bubble">
-                    <div class="max-w-[70%] ${isMe ? 'bg-indigo-600 text-white rounded-t-3xl rounded-bl-3xl' : 'bg-slate-900 text-slate-200 rounded-t-3xl rounded-br-3xl'} p-5 shadow-xl">
-                        <p class="text-[10px] opacity-50 mb-1 font-bold">${user}</p>
-                        <p class="text-sm leading-relaxed">${text}</p>
-                    </div>
-                </div>`;
-            dom.chat.insertAdjacentHTML('beforeend', html);
-            dom.chat.scrollTop = dom.chat.scrollHeight;
-        }
-
-        function animateBars() {
-            const bars = document.querySelectorAll('.audio-bar');
+        function animateVisualizer() {
             setInterval(() => {
-                bars.forEach(b => { b.style.height = (Math.random() * 20 + 5) + 'px'; });
+                document.querySelectorAll('.wave').forEach(w => w.style.height = (Math.random()*30 + 5) + 'px');
             }, 100);
         }
 
-        socket.on('partner_offline', () => {
-            document.getElementById('p-name').innerText = "Suhbatdosh tark etdi";
-            document.getElementById('p-status').classList.replace('bg-emerald-500', 'bg-red-500');
-            dom.input.disabled = true;
+        socket.on('partner_disconnected', () => {
+            document.getElementById('partnerName').innerText = "Session Offline";
+            document.getElementById('statusPulse').classList.replace('bg-emerald-500', 'bg-red-500');
             if(pc) pc.close();
         });
     </script>
