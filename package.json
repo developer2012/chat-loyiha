@@ -1,0 +1,19 @@
+{
+  "name": "langpro-chat",
+  "version": "1.0.0",
+  "description": "Premium Language Exchange Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "colors": "^1.4.0",
+    "express": "^4.18.2",
+    "socket.io": "^4.8.1",
+    "uuid": "^9.0.1"
+  },
+  "keywords": ["chat", "webrtc", "language-learning"],
+  "author": "",
+  "license": "ISC"
+}
