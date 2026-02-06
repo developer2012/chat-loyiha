@@ -1,6 +1,7 @@
 /**
- * LangPro - Senior Level Backend Architecture
- * Real-time Language Exchange Engine with WebRTC & Socket.io
+ * LangPro - Senior Level Enterprise Chat Engine
+ * Real-time Communication with WebRTC Signaling & Advanced Matchmaking
+ * Version: 2.1.0
  */
 
 const express = require('express');
@@ -8,215 +9,231 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const color = require('colors'); // Agar o'rnatilmagan bo'lsa: npm install colors
+const colors = require('colors');
+const fs = require('fs');
 
-// --- SERVER SETUP ---
+// --- INITIALIZATION ---
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] },
-    pingTimeout: 60000,
+    pingTimeout: 30000,
+    pingInterval: 10000
 });
 
-// --- MIDDLEWARES & STATIC ASSETS ---
-app.use(express.static(__dirname));
+// --- CONSTANTS & CONFIG ---
+const PORT = process.env.PORT || 3000;
+const MAX_MSG_LENGTH = 1000;
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 daqiqa
+
+// --- STATE MANAGEMENT (In-Memory Database) ---
+const State = {
+    users: new Map(), // All online users
+    rooms: new Map(), // Active chat sessions
+    queue: {
+        "A1": [], "A2": [], "B1": [], "B2": [], "C1": [], "C2": []
+    },
+    stats: {
+        totalConnections: 0,
+        totalMessages: 0,
+        totalMatches: 0
+    }
+};
+
+// --- LOGGING SYSTEM ---
+const Logger = {
+    log: (msg, type = 'info') => {
+        const timestamp = new Date().toISOString();
+        const prefix = `[${timestamp}]`.grey;
+        let formattedMsg;
+
+        switch (type) {
+            case 'success': formattedMsg = `${'✓'.green} ${msg.bold}`; break;
+            case 'error': formattedMsg = `${'✗'.red} ${msg.red.bold}`; break;
+            case 'warn': formattedMsg = `${'!'.yellow} ${msg.yellow}`; break;
+            default: formattedMsg = `${'i'.cyan} ${msg}`;
+        }
+        console.log(`${prefix} ${formattedMsg}`);
+    }
+};
+
+// --- MIDDLEWARES ---
+app.use(express.static(path.join(__dirname)));
 app.use(express.json());
 
-// Routes
+// --- ROUTES ---
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.resolve(__dirname, 'index.html'));
 });
 
-// --- DATA STRUCTURES (Memory Optimized) ---
-const activeUsers = new Map(); // Global user registry
-const activeRooms = new Map(); // Current active sessions
-const matchmakingQueues = {
-    "A1": [], "A2": [], "B1": [], "B2": [], "C1": [], "C2": []
-};
-
-// --- LOGGING UTILITY ---
-const logger = {
-    info: (msg) => console.log(`[${new Date().toLocaleTimeString()}] ℹ️  ${msg}`.cyan),
-    success: (msg) => console.log(`[${new Date().toLocaleTimeString()}] ✅ ${msg}`.green.bold),
-    warn: (msg) => console.log(`[${new Date().toLocaleTimeString()}] ⚠️  ${msg}`.yellow),
-    error: (msg) => console.log(`[${new Date().toLocaleTimeString()}] ❌ ${msg}`.red.underline)
-};
+// Health check endpoint for monitoring
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'online',
+        uptime: process.uptime(),
+        activeUsers: State.users.size,
+        activeRooms: State.rooms.size
+    });
+});
 
 // --- CORE MATCHMAKING LOGIC ---
-const handleMatchmaking = (socket, user) => {
-    const queue = matchmakingQueues[user.level];
-    
-    // Check if there is a waiting peer
+const attemptMatch = (socket, level) => {
+    const queue = State.queue[level];
+
     if (queue.length > 0) {
-        const partner = queue.shift();
-        
-        // Ensure partner is still connected
-        const partnerSocket = io.sockets.sockets.get(partner.id);
+        const partnerInfo = queue.shift();
+        const partnerSocket = io.sockets.sockets.get(partnerInfo.id);
+
         if (!partnerSocket) {
-            logger.warn(`Partner ${partner.name} disconnected. Re-searching...`);
-            return handleMatchmaking(socket, user);
+            Logger.log(`Partner ${partnerInfo.name} disconnected while in queue`, 'warn');
+            return attemptMatch(socket, level);
         }
 
         const roomId = `room_${uuidv4()}`;
         
-        // Create Room Data
-        const sessionData = {
-            id: roomId,
-            participants: [socket.id, partner.id],
-            metadata: { level: user.level, startTime: Date.now() }
-        };
-
-        // Network Layer: Join Room
+        // Setup room
         socket.join(roomId);
         partnerSocket.join(roomId);
         
-        // Store session info in socket instances
         socket.currentRoom = roomId;
         partnerSocket.currentRoom = roomId;
-        
-        activeRooms.set(roomId, sessionData);
 
-        // Notify Clients
+        const roomData = {
+            id: roomId,
+            users: [socket.id, partnerSocket.id],
+            createdAt: Date.now(),
+            level: level
+        };
+
+        State.rooms.set(roomId, roomData);
+        State.stats.totalMatches++;
+
+        // Notify both parties
+        const user = State.users.get(socket.id);
+        const partner = State.users.get(partnerSocket.id);
+
         io.to(roomId).emit('match_found', {
-            roomId: roomId,
+            roomId,
             partner: { name: partner.name, level: partner.level },
-            timestamp: Date.now()
+            me: { name: user.name }
         });
 
-        logger.success(`Session Established: ${user.name} 🤝 ${partner.name} (${user.level})`);
+        partnerSocket.emit('match_found', {
+            roomId,
+            partner: { name: user.name, level: user.level },
+            me: { name: partner.name }
+        });
+
+        Logger.log(`Match Created: ${user.name} ↔ ${partner.name} [${level}]`, 'success');
     } else {
-        // No match found, add to queue
-        queue.push({ id: socket.id, name: user.name, level: user.level });
-        logger.info(`${user.name} (${user.level}) is now in queue.`);
+        const userData = State.users.get(socket.id);
+        State.queue[level].push({ id: socket.id, name: userData.name });
+        Logger.log(`${userData.name} added to ${level} queue`);
     }
 };
 
-// --- SOCKET.IO EVENT HANDLERS ---
+// --- SOCKET.IO HANDLING ---
 io.on('connection', (socket) => {
-    logger.info(`New raw connection established: ${socket.id}`);
+    State.stats.totalConnections++;
+    Logger.log(`New connection established: ${socket.id.substring(0,6)}...`);
 
-    /**
-     * @event register_user
-     * Initializes user profile and enters matchmaking
-     */
-    socket.on('register_user', (payload) => {
+    // 1. User Registration
+    socket.on('register_user', (data) => {
         try {
-            const { name, level } = payload;
-            if (!name || !level) throw new Error("Invalid registration data");
+            if (!data.name || !data.level) throw new Error("Invalid registration data");
 
-            const profile = {
+            const newUser = {
                 id: socket.id,
-                name: name.substring(0, 20),
-                level: level,
-                joinedAt: Date.now()
+                name: data.name.substring(0, 25),
+                level: data.level,
+                registeredAt: Date.now()
             };
 
-            activeUsers.set(socket.id, profile);
-            logger.info(`User Registered: ${profile.name} [${profile.level}]`);
-            
-            handleMatchmaking(socket, profile);
+            State.users.set(socket.id, newUser);
+            Logger.log(`User Registered: ${newUser.name} (${newUser.level})`, 'success');
+
+            attemptMatch(socket, newUser.level);
         } catch (err) {
-            logger.error(`Registration Error: ${err.message}`);
-            socket.emit('system_error', { message: "Internal Server Error" });
+            Logger.log(`Registration failed: ${err.message}`, 'error');
+            socket.emit('error_msg', "Ro'yxatdan o'tishda xatolik yuz berdi.");
         }
     });
 
-    /**
-     * @event message
-     * Relays text chat messages within the assigned room
-     */
+    // 2. Messaging Logic
     socket.on('message', (text) => {
-        const room = socket.currentRoom;
-        const user = activeUsers.get(socket.id);
-
-        if (room && user) {
-            socket.to(room).emit('message', {
-                senderId: socket.id,
-                senderName: user.name,
-                content: text,
+        const user = State.users.get(socket.id);
+        if (user && socket.currentRoom && text.length <= MAX_MSG_LENGTH) {
+            socket.to(socket.currentRoom).emit('message', {
+                sender: user.name,
+                text: text,
                 time: new Date().toLocaleTimeString()
             });
-            logger.info(`[MSG] ${user.name} in ${room}: ${text.substring(0, 30)}...`);
+            State.stats.totalMessages++;
         }
     });
 
-    /**
-     * @event signal
-     * WebRTC Signaling relay (Offers, Answers, IceCandidates)
-     */
+    // 3. WebRTC Signaling Relay
     socket.on('signal', (payload) => {
-        const room = socket.currentRoom;
-        if (room) {
-            // Forward signaling data to the other party
-            socket.to(room).emit('signal', payload);
+        if (socket.currentRoom) {
+            socket.to(socket.currentRoom).emit('signal', payload);
         }
     });
 
-    /**
-     * @event typing
-     * UX Feature: Show typing indicator
-     */
+    // 4. Typing Indicator
     socket.on('typing', (isTyping) => {
-        const room = socket.currentRoom;
-        if (room) {
-            socket.to(room).emit('partner_typing', { typing: isTyping });
+        if (socket.currentRoom) {
+            socket.to(socket.currentRoom).emit('partner_typing', isTyping);
         }
     });
 
-    /**
-     * @event disconnect
-     * Graceful cleanup of resources
-     */
-    socket.on('disconnect', (reason) => {
-        const user = activeUsers.get(socket.id);
-        const room = socket.currentRoom;
-
+    // 5. Clean Disconnect
+    socket.on('disconnect', () => {
+        const user = State.users.get(socket.id);
         if (user) {
-            // Remove from matchmaking queues
-            const queue = matchmakingQueues[user.level];
-            const index = queue.findIndex(u => u.id === socket.id);
-            if (index !== -1) queue.splice(index, 1);
+            // Remove from queue
+            State.queue[user.level] = State.queue[user.level].filter(u => u.id !== socket.id);
 
-            // Notify partner if in a room
-            if (room) {
-                socket.to(room).emit('partner_disconnected', { name: user.name });
-                activeRooms.delete(room);
-                logger.warn(`Room ${room} dissolved due to disconnect.`);
+            // Handle active room cleanup
+            if (socket.currentRoom) {
+                socket.to(socket.currentRoom).emit('partner_disconnected');
+                State.rooms.delete(socket.currentRoom);
+                Logger.log(`Room ${socket.currentRoom} closed.`, 'warn');
             }
 
-            activeUsers.delete(socket.id);
-            logger.info(`User ${user.name} disconnected (${reason})`);
+            State.users.delete(socket.id);
+            Logger.log(`User ${user.name} offline.`);
         }
     });
 });
 
-// --- SERVER LIFECYCLE ---
-const PORT = process.env.PORT || 3000;
+// --- AUTO-CLEANUP CRON (Memory Management) ---
+setInterval(() => {
+    Logger.log(`System Status: ${State.users.size} Users Online | ${State.rooms.size} Active Rooms`);
+    // Bu yerda eski xonalarni tozalash mantiqi bo'lishi mumkin
+}, 60000 * 5); // Har 5 daqiqada
 
+// --- SERVER START ---
 const startServer = () => {
     try {
         server.listen(PORT, () => {
             console.clear();
             console.log("===============================================".blue);
-            console.log("   🚀 LANGPRO SENIOR REAL-TIME ENGINE START   ".white.bgBlue.bold);
+            console.log("   🚀 LANGPRO SENIOR CHAT ENGINE STARTED      ".white.bgBlue.bold);
             console.log("===============================================".blue);
-            console.log(`📡 Status:    Online`.green);
-            console.log(`🔗 Endpoint:  http://localhost:${PORT}`.white);
-            console.log(`📦 Node Ver:  ${process.version}`.white);
-            console.log(`⏱️  Time:      ${new Date().toLocaleString()}`.white);
-            console.log("-----------------------------------------------".blue);
+            console.log(`📡 Port: ${PORT}`);
+            console.log(`🏠 Mode: Production`);
+            console.log(`🛠️  Node: ${process.version}`);
+            console.log("===============================================".blue);
         });
     } catch (err) {
-        logger.error(`Critical Failure: ${err.message}`);
+        Logger.log(`Server startup failed: ${err.message}`, 'error');
         process.exit(1);
     }
 };
 
-// Error handling for the process
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
-});
-
 startServer();
 
-// Total Lines: Approximately 200-250 lines with comments and structure.
+// Error handling for global process
+process.on('unhandledRejection', (reason, promise) => {
+    Logger.log(`Unhandled Rejection: ${reason}`, 'error');
+});
