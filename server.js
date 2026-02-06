@@ -1,7 +1,14 @@
 /**
- * LangPro - Senior Level Enterprise Chat Engine
- * Real-time Communication with WebRTC Signaling & Advanced Matchmaking
- * Version: 2.1.0
+ * ====================================================================
+ * LANGPRO ENTERPRISE CHAT ENGINE v3.0 (SENIOR ARCHITECTURE)
+ * ====================================================================
+ * Author: Gemini AI Collaboration
+ * Features: 
+ * - High-performance WebRTC Signaling
+ * - Advanced Room Management
+ * - Memory Leak Protection
+ * - Dynamic Peer-to-Peer Handshaking
+ * ====================================================================
  */
 
 const express = require('express');
@@ -12,228 +19,241 @@ const { v4: uuidv4 } = require('uuid');
 const colors = require('colors');
 const fs = require('fs');
 
-// --- INITIALIZATION ---
+// --- 1. CORE SERVER INITIALIZATION ---
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] },
+    connectTimeout: 45000,
     pingTimeout: 30000,
-    pingInterval: 10000
+    pingInterval: 10000,
+    transports: ['websocket', 'polling']
 });
 
-// --- CONSTANTS & CONFIG ---
+// --- 2. GLOBAL CONSTANTS ---
 const PORT = process.env.PORT || 3000;
-const MAX_MSG_LENGTH = 1000;
-const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 daqiqa
+const MAX_QUEUE_SIZE = 500;
+const ROOM_ID_PREFIX = 'lp_room_';
 
-// --- STATE MANAGEMENT (In-Memory Database) ---
-const State = {
-    users: new Map(), // All online users
-    rooms: new Map(), // Active chat sessions
-    queue: {
+// --- 3. SYSTEM STATE (IN-MEMORY DATABASE) ---
+const GlobalState = {
+    activeUsers: new Map(),
+    activeRooms: new Map(),
+    matchmaking: {
         "A1": [], "A2": [], "B1": [], "B2": [], "C1": [], "C2": []
     },
-    stats: {
-        totalConnections: 0,
-        totalMessages: 0,
-        totalMatches: 0
+    performance: {
+        totalMatches: 0,
+        failedSignals: 0,
+        messagesProcessed: 0,
+        startTime: Date.now()
     }
 };
 
-// --- LOGGING SYSTEM ---
-const Logger = {
-    log: (msg, type = 'info') => {
-        const timestamp = new Date().toISOString();
-        const prefix = `[${timestamp}]`.grey;
-        let formattedMsg;
-
-        switch (type) {
-            case 'success': formattedMsg = `${'✓'.green} ${msg.bold}`; break;
-            case 'error': formattedMsg = `${'✗'.red} ${msg.red.bold}`; break;
-            case 'warn': formattedMsg = `${'!'.yellow} ${msg.yellow}`; break;
-            default: formattedMsg = `${'i'.cyan} ${msg}`;
-        }
-        console.log(`${prefix} ${formattedMsg}`);
-    }
+// --- 4. ADVANCED LOGGER SYSTEM ---
+const SysLog = {
+    info: (msg) => console.log(`${'[INFO]'.blue} ${new Date().toLocaleTimeString()} - ${msg}`),
+    success: (msg) => console.log(`${'[OK]'.green} ${new Date().toLocaleTimeString()} - ${msg.bold}`),
+    warn: (msg) => console.log(`${'[WARN]'.yellow} ${new Date().toLocaleTimeString()} - ${msg}`),
+    error: (msg) => console.log(`${'[ERR]'.red} ${new Date().toLocaleTimeString()} - ${msg.toUpperCase()}`),
+    signal: (msg) => console.log(`${'[RTC]'.magenta} ${msg}`)
 };
 
-// --- MIDDLEWARES ---
+// --- 5. MIDDLEWARE & STATIC ASSETS ---
 app.use(express.static(path.join(__dirname)));
 app.use(express.json());
 
-// --- ROUTES ---
+// --- 6. ROUTES ---
 app.get('/', (req, res) => {
     res.sendFile(path.resolve(__dirname, 'index.html'));
 });
 
-// Health check endpoint for monitoring
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'online',
-        uptime: process.uptime(),
-        activeUsers: State.users.size,
-        activeRooms: State.rooms.size
+// System Monitor API
+app.get('/api/status', (req, res) => {
+    res.status(200).json({
+        online: true,
+        users: GlobalState.activeUsers.size,
+        rooms: GlobalState.activeRooms.size,
+        uptime: Math.floor((Date.now() - GlobalState.performance.startTime) / 1000) + 's',
+        stats: GlobalState.performance
     });
 });
 
-// --- CORE MATCHMAKING LOGIC ---
-const attemptMatch = (socket, level) => {
-    const queue = State.queue[level];
+// --- 7. MATCHMAKING CORE ALGORITHM ---
+const processMatchmaking = (socket, level) => {
+    const queue = GlobalState.matchmaking[level];
 
     if (queue.length > 0) {
-        const partnerInfo = queue.shift();
-        const partnerSocket = io.sockets.sockets.get(partnerInfo.id);
+        // Partner topildi
+        const partnerRef = queue.shift();
+        const partnerSocket = io.sockets.sockets.get(partnerRef.id);
 
-        if (!partnerSocket) {
-            Logger.log(`Partner ${partnerInfo.name} disconnected while in queue`, 'warn');
-            return attemptMatch(socket, level);
+        if (!partnerSocket || partnerSocket.id === socket.id) {
+            SysLog.warn(`Partner ${partnerRef.id} not available, retrying...`);
+            return processMatchmaking(socket, level);
         }
 
-        const roomId = `room_${uuidv4()}`;
+        const roomId = ROOM_ID_PREFIX + uuidv4();
         
-        // Setup room
+        // Room Management
         socket.join(roomId);
         partnerSocket.join(roomId);
         
-        socket.currentRoom = roomId;
-        partnerSocket.currentRoom = roomId;
+        socket.currentRoomId = roomId;
+        partnerSocket.currentRoomId = roomId;
 
-        const roomData = {
+        const roomMetadata = {
             id: roomId,
-            users: [socket.id, partnerSocket.id],
-            createdAt: Date.now(),
-            level: level
+            participants: [socket.id, partnerSocket.id],
+            level: level,
+            startTime: Date.now()
         };
 
-        State.rooms.set(roomId, roomData);
-        State.stats.totalMatches++;
+        GlobalState.activeRooms.set(roomId, roomMetadata);
+        GlobalState.performance.totalMatches++;
 
-        // Notify both parties
-        const user = State.users.get(socket.id);
-        const partner = State.users.get(partnerSocket.id);
+        // WebRTC Role Assignment
+        // Caller (Offer yuboruvchi) va Receiver (Answer yuboruvchi)
+        const userA = GlobalState.activeUsers.get(socket.id);
+        const userB = GlobalState.activeUsers.get(partnerSocket.id);
 
-        io.to(roomId).emit('match_found', {
-            roomId,
-            partner: { name: partner.name, level: partner.level },
-            me: { name: user.name }
+        // Notify User A (Caller)
+        socket.emit('match_found', {
+            roomId: roomId,
+            partner: { name: userB.name, level: userB.level },
+            role: 'caller' 
         });
 
+        // Notify User B (Receiver)
         partnerSocket.emit('match_found', {
-            roomId,
-            partner: { name: user.name, level: user.level },
-            me: { name: partner.name }
+            roomId: roomId,
+            partner: { name: userA.name, level: userA.level },
+            role: 'receiver'
         });
 
-        Logger.log(`Match Created: ${user.name} ↔ ${partner.name} [${level}]`, 'success');
+        SysLog.success(`VOICE BRIDGE: ${userA.name} <==> ${userB.name} [Room: ${roomId}]`);
     } else {
-        const userData = State.users.get(socket.id);
-        State.queue[level].push({ id: socket.id, name: userData.name });
-        Logger.log(`${userData.name} added to ${level} queue`);
+        // Navbatga qo'shish
+        const userData = GlobalState.activeUsers.get(socket.id);
+        GlobalState.matchmaking[level].push({ id: socket.id, name: userData.name });
+        SysLog.info(`${userData.name} is waiting in ${level} queue...`);
     }
 };
 
-// --- SOCKET.IO HANDLING ---
+// --- 8. SOCKET.IO REAL-TIME ENGINE ---
 io.on('connection', (socket) => {
-    State.stats.totalConnections++;
-    Logger.log(`New connection established: ${socket.id.substring(0,6)}...`);
+    SysLog.info(`Connection attempt: ${socket.id}`);
 
-    // 1. User Registration
-    socket.on('register_user', (data) => {
-        try {
-            if (!data.name || !data.level) throw new Error("Invalid registration data");
+    // [A] Registration
+    socket.on('register_user', (payload) => {
+        if (!payload.name || !payload.level) {
+            return socket.emit('sys_error', 'Ma'lumotlar to'liq emas');
+        }
 
-            const newUser = {
-                id: socket.id,
-                name: data.name.substring(0, 25),
-                level: data.level,
-                registeredAt: Date.now()
-            };
+        const userProfile = {
+            id: socket.id,
+            name: payload.name.substring(0, 20),
+            level: payload.level,
+            joinedAt: Date.now()
+        };
 
-            State.users.set(socket.id, newUser);
-            Logger.log(`User Registered: ${newUser.name} (${newUser.level})`, 'success');
+        GlobalState.activeUsers.set(socket.id, userProfile);
+        SysLog.info(`User Registered: ${userProfile.name} [${userProfile.level}]`);
 
-            attemptMatch(socket, newUser.level);
-        } catch (err) {
-            Logger.log(`Registration failed: ${err.message}`, 'error');
-            socket.emit('error_msg', "Ro'yxatdan o'tishda xatolik yuz berdi.");
+        processMatchmaking(socket, userProfile.level);
+    });
+
+    // [B] WEBRTC SIGNALING RELAY (OVOZ UCHUN ENG MUHIM QISM)
+    socket.on('signal', (data) => {
+        if (socket.currentRoomId) {
+            // Signalni xonadagi boshqa foydalanuvchiga yuborish
+            socket.to(socket.currentRoomId).emit('signal', data);
+            
+            if (data.offer) SysLog.signal(`OFFER from ${socket.id}`);
+            if (data.answer) SysLog.signal(`ANSWER from ${socket.id}`);
+            if (data.candidate) SysLog.signal(`ICE_CANDIDATE relaying...`);
+        } else {
+            GlobalState.performance.failedSignals++;
         }
     });
 
-    // 2. Messaging Logic
+    // [C] Message Handling
     socket.on('message', (text) => {
-        const user = State.users.get(socket.id);
-        if (user && socket.currentRoom && text.length <= MAX_MSG_LENGTH) {
-            socket.to(socket.currentRoom).emit('message', {
+        const user = GlobalState.activeUsers.get(socket.id);
+        if (user && socket.currentRoomId) {
+            socket.to(socket.currentRoomId).emit('message', {
                 sender: user.name,
                 text: text,
-                time: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleTimeString()
             });
-            State.stats.totalMessages++;
+            GlobalState.performance.messagesProcessed++;
         }
     });
 
-    // 3. WebRTC Signaling Relay
-    socket.on('signal', (payload) => {
-        if (socket.currentRoom) {
-            socket.to(socket.currentRoom).emit('signal', payload);
+    // [D] Typing Indicator
+    socket.on('typing_status', (status) => {
+        if (socket.currentRoomId) {
+            socket.to(socket.currentRoomId).emit('partner_typing', status);
         }
     });
 
-    // 4. Typing Indicator
-    socket.on('typing', (isTyping) => {
-        if (socket.currentRoom) {
-            socket.to(socket.currentRoom).emit('partner_typing', isTyping);
-        }
-    });
-
-    // 5. Clean Disconnect
+    // [E] Disconnection & Cleanup
     socket.on('disconnect', () => {
-        const user = State.users.get(socket.id);
+        const user = GlobalState.activeUsers.get(socket.id);
         if (user) {
-            // Remove from queue
-            State.queue[user.level] = State.queue[user.level].filter(u => u.id !== socket.id);
+            // Remove from matchmaking queues
+            Object.keys(GlobalState.matchmaking).forEach(lvl => {
+                GlobalState.matchmaking[lvl] = GlobalState.matchmaking[lvl].filter(u => u.id !== socket.id);
+            });
 
-            // Handle active room cleanup
-            if (socket.currentRoom) {
-                socket.to(socket.currentRoom).emit('partner_disconnected');
-                State.rooms.delete(socket.currentRoom);
-                Logger.log(`Room ${socket.currentRoom} closed.`, 'warn');
+            // Handle room cleanup
+            if (socket.currentRoomId) {
+                socket.to(socket.currentRoomId).emit('partner_disconnected');
+                GlobalState.activeRooms.delete(socket.currentRoomId);
+                SysLog.warn(`Session Terminated: ${socket.currentRoomId}`);
             }
 
-            State.users.delete(socket.id);
-            Logger.log(`User ${user.name} offline.`);
+            GlobalState.activeUsers.delete(socket.id);
+            SysLog.info(`Client ${user.name} offline.`);
         }
     });
 });
 
-// --- AUTO-CLEANUP CRON (Memory Management) ---
+// --- 9. AUTO-MAINTENANCE (MEMORY MONITOR) ---
 setInterval(() => {
-    Logger.log(`System Status: ${State.users.size} Users Online | ${State.rooms.size} Active Rooms`);
-    // Bu yerda eski xonalarni tozalash mantiqi bo'lishi mumkin
-}, 60000 * 5); // Har 5 daqiqada
+    const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+    SysLog.info(`Memory Usage: ${Math.round(memoryUsage)}MB | Active Users: ${GlobalState.activeUsers.size}`);
+    
+    // Clean orphan rooms
+    GlobalState.activeRooms.forEach((room, id) => {
+        if (Date.now() - room.startTime > 3600000) { // 1 soatdan ko'p bo'lsa
+            GlobalState.activeRooms.delete(id);
+        }
+    });
+}, 300000); // Har 5 daqiqada
 
-// --- SERVER START ---
-const startServer = () => {
+// --- 10. SERVER STARTUP ---
+const bootstrap = () => {
     try {
         server.listen(PORT, () => {
-            console.clear();
-            console.log("===============================================".blue);
-            console.log("   🚀 LANGPRO SENIOR CHAT ENGINE STARTED      ".white.bgBlue.bold);
-            console.log("===============================================".blue);
-            console.log(`📡 Port: ${PORT}`);
-            console.log(`🏠 Mode: Production`);
-            console.log(`🛠️  Node: ${process.version}`);
-            console.log("===============================================".blue);
+            process.stdout.write('\x1Bc'); // Clear terminal
+            console.log("=====================================================".blue);
+            console.log("   🛡️  LANGPRO SENIOR BACKEND CORE v3.0 ONLINE     ".white.bgBlue.bold);
+            console.log("=====================================================".blue);
+            console.log(`${'>>'.green} SERVER_PORT: ${PORT.toString().yellow}`);
+            console.log(`${'>>'.green} WEBRTC_RELAY: ACTIVE`.cyan);
+            console.log(`${'>>'.green} ENGINE_VERSION: NODE_${process.version}`);
+            console.log(`${'>>'.green} STATUS: WAITING_FOR_CONNECTIONS...`);
+            console.log("=====================================================".blue);
         });
-    } catch (err) {
-        Logger.log(`Server startup failed: ${err.message}`, 'error');
+    } catch (e) {
+        SysLog.error(`FATAL STARTUP ERROR: ${e.message}`);
         process.exit(1);
     }
 };
 
-startServer();
+bootstrap();
 
-// Error handling for global process
-process.on('unhandledRejection', (reason, promise) => {
-    Logger.log(`Unhandled Rejection: ${reason}`, 'error');
-});
+// Global Exception Handler
+process.on('uncaughtException', (err) => SysLog.error(`UNCAUGHT: ${err.message}`));
+process.on('unhandledRejection', (reason) => SysLog.error(`REJECTION: ${reason}`));
