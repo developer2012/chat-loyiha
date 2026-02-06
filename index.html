@@ -1,325 +1,204 @@
 <!DOCTYPE html>
-<html lang="uz" class="dark">
+<html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LangPro Enterprise | Voice & Audio Intelligence</title>
-    
+    <title>LangPro Enterprise v4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
     <style>
-        :root {
-            --primary: #6366f1;
-            --secondary: #a855f7;
-            --accent: #10b981;
-            --dark: #020617;
-            --glass: rgba(15, 23, 42, 0.8);
-        }
-
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap');
+        
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: radial-gradient(circle at top left, #1e1b4b, #020617);
-            color: #f8fafc;
-            height: 100vh;
+            font-family: 'Space Grotesk', sans-serif;
+            background: #020617;
+            color: #e2e8f0;
             overflow: hidden;
         }
 
-        /* Senior UI Effects */
-        .glass-card {
-            background: var(--glass);
-            backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        .enterprise-glass {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .neon-border {
-            position: relative;
-            border-radius: 24px;
-            transition: 0.5s;
-        }
-
-        .neon-border:hover {
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
-            border-color: var(--primary);
-        }
-
-        /* Audio Visualizer Waves */
-        .wave-container {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            height: 40px;
-        }
-
-        .wave-bar {
+        .audio-bar {
             width: 4px;
-            background: var(--primary);
-            border-radius: 10px;
+            background: #6366f1;
+            margin: 0 2px;
+            border-radius: 2px;
             transition: height 0.1s ease;
         }
 
-        /* Message Animations */
-        @keyframes messageIn {
-            from { opacity: 0; transform: translateY(20px) scale(0.9); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        .msg-bubble {
+            animation: popIn 0.3s cubic-bezier(0.26, 1.36, 0.4, 1.29);
         }
 
-        .msg-anim { animation: messageIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 20px; }
-
-        #video-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: -1;
-            opacity: 0.3;
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.8) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
         }
     </style>
 </head>
-<body class="flex items-center justify-center p-4">
+<body class="h-screen w-screen flex items-center justify-center p-6">
 
-    <canvas id="video-canvas"></canvas>
-
-    <div id="auth-screen" class="fixed inset-0 z-[1000] bg-slate-950 flex items-center justify-center">
-        <div class="max-w-md w-full p-8 glass-card rounded-[40px] text-center scale-up">
-            <div class="mb-8 relative inline-block">
-                <div class="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mx-auto rotate-12 hover:rotate-0 transition-transform duration-500">
-                    <i data-lucide="mic" class="w-10 h-10 text-white"></i>
-                </div>
-                <div class="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full border-4 border-slate-950"></div>
+    <div id="login-view" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-6">
+        <div class="enterprise-glass p-10 rounded-[40px] max-w-md w-full text-center shadow-2xl">
+            <div class="mb-6 inline-block p-4 bg-indigo-600 rounded-3xl rotate-12">
+                <i data-lucide="mic-2" class="w-10 h-10 text-white"></i>
             </div>
-
-            <h1 class="text-4xl font-black mb-2 tracking-tighter">LANGPRO <span class="text-indigo-500">CORE</span></h1>
-            <p class="text-slate-400 mb-8 font-medium">Professional Voice Engine v3.0</p>
-
-            <div class="space-y-4 text-left">
-                <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Profiling</label>
-                    <input type="text" id="username" placeholder="Ismingizni kiriting..." 
-                        class="w-full bg-slate-900/50 border border-white/5 p-5 rounded-2xl outline-none focus:ring-2 ring-indigo-500 transition-all text-white font-semibold">
-                </div>
-                
-                <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase ml-2 tracking-widest">Language Proficiency</label>
-                    <select id="userlevel" class="w-full bg-slate-900/50 border border-white/5 p-5 rounded-2xl outline-none focus:ring-2 ring-indigo-500 transition-all cursor-pointer font-bold text-indigo-400">
-                        <option value="A1">A1 - Beginner</option>
-                        <option value="B2">B2 - Intermediate</option>
-                        <option value="C1">C1 - Advanced</option>
-                    </select>
-                </div>
-
-                <button onclick="initCore()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-5 rounded-2xl shadow-2xl shadow-indigo-600/20 transition-all active:scale-95 flex items-center justify-center gap-3">
-                    <span>Suhbatni faollashtirish</span>
-                    <i data-lucide="arrow-right" class="w-5 h-5"></i>
-                </button>
-            </div>
+            <h1 class="text-4xl font-bold mb-2 tracking-tight">LangPro <span class="text-indigo-500 text-lg">v4.0</span></h1>
+            <p class="text-slate-500 mb-8">Professional ovozli muloqot tizimi</p>
+            
+            <input id="in-name" type="text" placeholder="Ismingiz" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-2xl mb-4 outline-none focus:ring-2 ring-indigo-500">
+            <select id="in-level" class="w-full bg-slate-900 border border-slate-800 p-5 rounded-2xl mb-8 outline-none text-indigo-400 font-bold">
+                <option value="A1">A1 - Beginner</option>
+                <option value="B2">B2 - Intermediate</option>
+                <option value="C1">C1 - Advanced</option>
+            </select>
+            
+            <button onclick="startSession()" class="w-full bg-indigo-600 hover:bg-indigo-500 p-5 rounded-2xl font-bold transition-all transform active:scale-95 shadow-xl shadow-indigo-600/20">
+                Suhbatni boshlash
+            </button>
         </div>
     </div>
 
-    <div id="main-interface" class="hidden w-full max-w-[1400px] h-[90vh] glass-card rounded-[48px] flex overflow-hidden relative">
+    <div id="main-view" class="hidden w-full max-w-6xl h-full enterprise-glass rounded-[50px] flex overflow-hidden shadow-2xl">
         
-        <aside class="w-24 lg:w-80 border-r border-white/5 flex flex-col p-8 bg-slate-950/40">
-            <div class="flex items-center gap-4 mb-16 px-2">
-                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <i data-lucide="zap" class="text-white w-6 h-6"></i>
-                </div>
-                <h2 class="text-2xl font-black tracking-tighter hidden lg:block">LP ENGINE</h2>
+        <aside class="w-24 lg:w-72 border-r border-white/5 p-8 flex flex-col">
+            <div class="flex items-center gap-3 mb-12">
+                <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center"><i data-lucide="zap" class="w-5 h-5"></i></div>
+                <span class="font-bold text-xl hidden lg:block">LangPro</span>
             </div>
-
-            <nav class="space-y-4 flex-1">
-                <div class="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-4 ml-4 hidden lg:block">Menu</div>
-                <button class="w-full flex items-center gap-4 p-5 rounded-2xl bg-indigo-600/10 text-indigo-400 transition-all border border-indigo-500/20">
-                    <i data-lucide="message-square" class="w-6 h-6"></i>
-                    <span class="font-bold hidden lg:block">Active Chat</span>
-                </button>
-                <button class="w-full flex items-center gap-4 p-5 rounded-2xl hover:bg-white/5 text-slate-500 transition-all group">
-                    <i data-lucide="users" class="group-hover:text-white"></i>
-                    <span class="font-bold hidden lg:block group-hover:text-white">Community</span>
-                </button>
+            
+            <nav class="flex-1 space-y-4">
+                <div class="p-4 rounded-2xl bg-indigo-600/10 text-indigo-400 flex items-center gap-4"><i data-lucide="message-circle"></i> <span class="hidden lg:block font-bold">Chat</span></div>
+                <div class="p-4 rounded-2xl hover:bg-white/5 text-slate-500 flex items-center gap-4 cursor-not-allowed"><i data-lucide="users"></i> <span class="hidden lg:block">Guruhlar</span></div>
             </nav>
 
-            <div class="mt-auto p-6 bg-slate-900/80 rounded-[32px] border border-white/5">
-                <div class="flex items-center gap-4">
-                    <div id="my-avatar" class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center font-black text-xl">?</div>
-                    <div class="hidden lg:block">
-                        <p id="my-name" class="font-bold text-sm">Loading...</p>
-                        <p id="my-level" class="text-[10px] text-emerald-500 font-black">ONLINE</p>
-                    </div>
+            <div class="mt-auto p-4 bg-slate-900/50 rounded-3xl flex items-center gap-4">
+                <div id="my-avatar" class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white">?</div>
+                <div class="hidden lg:block overflow-hidden">
+                    <p id="my-name-display" class="font-bold text-sm truncate">User</p>
+                    <p class="text-[10px] text-indigo-400">ONLINE</p>
                 </div>
             </div>
         </aside>
 
-        <main class="flex-1 flex flex-col min-w-0 bg-slate-900/20">
-            
-            <header class="h-28 border-b border-white/5 flex items-center justify-between px-10 bg-slate-950/20">
-                <div class="flex items-center gap-6">
-                    <div class="relative">
-                        <div id="p-avatar" class="w-16 h-16 bg-slate-800 rounded-3xl flex items-center justify-center text-2xl font-bold text-indigo-500 border border-white/5">?</div>
-                        <div id="p-status" class="absolute -bottom-1 -right-1 w-5 h-5 bg-slate-600 border-4 border-slate-950 rounded-full"></div>
-                    </div>
-                    <div>
-                        <h3 id="p-name" class="text-2xl font-extrabold tracking-tight">Searching...</h3>
-                        <p id="p-info" class="text-xs text-slate-500 font-semibold uppercase tracking-widest">Global Matchmaking</p>
-                    </div>
-                </div>
-
+        <main class="flex-1 flex flex-col relative bg-slate-950/20">
+            <header class="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/20">
                 <div class="flex items-center gap-4">
-                    <div id="audio-visualizer" class="hidden glass-card px-6 py-3 rounded-2xl flex items-center gap-3 border-indigo-500/30">
-                        <div class="wave-container" id="remote-waves">
-                            <div class="wave-bar h-2"></div>
-                            <div class="wave-bar h-4"></div>
-                            <div class="wave-bar h-6"></div>
-                            <div class="wave-bar h-3"></div>
-                            <div class="wave-bar h-5"></div>
-                        </div>
+                    <div id="p-status" class="w-3 h-3 rounded-full bg-slate-600 animate-pulse"></div>
+                    <h2 id="p-name" class="font-bold text-xl">Suhbatdosh qidirilmoqda...</h2>
+                </div>
+                
+                <div class="flex gap-4 items-center">
+                    <div id="visualizer" class="hidden flex items-end h-8 gap-1 px-4 border-r border-white/10">
+                        <div class="audio-bar h-2"></div>
+                        <div class="audio-bar h-5"></div>
+                        <div class="audio-bar h-3"></div>
                     </div>
-
-                    <button id="btn-mic" disabled onclick="toggleVoice()" 
-                        class="w-16 h-16 rounded-3xl bg-red-500/10 text-red-500 flex items-center justify-center hover:scale-105 transition-all border border-red-500/20 shadow-lg shadow-red-500/5 disabled:opacity-20">
-                        <i data-lucide="mic-off" id="mic-icon" class="w-7 h-7"></i>
+                    <button id="mic-btn" disabled onclick="toggleMic()" class="w-14 h-14 rounded-2xl bg-red-500/20 text-red-500 flex items-center justify-center transition-all hover:scale-105 border border-red-500/30">
+                        <i data-lucide="mic-off" id="mic-icon"></i>
                     </button>
-
-                    <button onclick="location.reload()" class="w-16 h-16 rounded-3xl bg-slate-800/50 flex items-center justify-center hover:bg-white/10 transition-all">
-                        <i data-lucide="log-out" class="w-7 h-7 text-slate-400"></i>
-                    </button>
+                    <button onclick="location.reload()" class="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center hover:bg-white/10"><i data-lucide="log-out"></i></button>
                 </div>
             </header>
 
-            <div id="chat-scroller" class="flex-1 overflow-y-auto p-10 space-y-8 relative">
-                <div id="match-loader" class="h-full flex flex-col items-center justify-center text-center space-y-6">
-                    <div class="relative">
-                        <div class="w-24 h-24 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-                        <i data-lucide="globe" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-indigo-500 w-8 h-8"></i>
-                    </div>
-                    <div class="max-w-xs">
-                        <h4 class="text-xl font-bold mb-2">Ideal sherik topilmoqda</h4>
-                        <p class="text-sm text-slate-500 leading-relaxed">Biz sizning darajangizga mos keladigan eng yaxshi suhbatdoshni qidiryapmiz...</p>
-                    </div>
+            <div id="chat-box" class="flex-1 overflow-y-auto p-8 space-y-6">
+                <div id="loader" class="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
+                    <div class="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                    <p>Global tarmoqdan sherik qidirilmoqda...</p>
                 </div>
             </div>
 
-            <footer class="p-10">
-                <div class="glass-card p-3 rounded-[32px] flex items-center gap-4 border-white/10 focus-within:border-indigo-500/50 transition-all shadow-2xl">
-                    <div class="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white cursor-pointer transition-colors">
-                        <i data-lucide="plus"></i>
-                    </div>
-                    <input type="text" id="msg-input" disabled placeholder="Xabaringizni yozing..." 
-                        class="flex-1 bg-transparent border-none outline-none py-4 text-lg font-medium placeholder:text-slate-600">
-                    <button id="btn-send" disabled onclick="handleSend()" 
-                        class="bg-indigo-600 hover:bg-indigo-500 text-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/40 transition-all active:scale-90">
-                        <i data-lucide="send" class="w-6 h-6"></i>
+            <div class="p-8">
+                <div class="enterprise-glass p-2 rounded-[30px] flex gap-4 shadow-2xl border-white/10">
+                    <input id="chat-input" disabled type="text" placeholder="Xabaringizni yozing..." class="flex-1 bg-transparent px-6 py-4 outline-none text-lg">
+                    <button id="send-btn" disabled onclick="sendMsg()" class="bg-indigo-600 hover:bg-indigo-500 text-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-all active:scale-90">
+                        <i data-lucide="send"></i>
                     </button>
                 </div>
-            </footer>
+            </div>
         </main>
     </div>
 
-    <div id="webrtc-bridge" class="hidden"></div>
+    <div id="audio-bridge" class="hidden"></div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // --- ENTERPRISE CORE LOGIC ---
         lucide.createIcons();
         const socket = io();
-        let pc = null;
-        let localStream = null;
-        let isVoiceActive = false;
-        let myRole = null;
+        let pc, localStream, isMuted = true;
 
-        const ui = {
-            auth: document.getElementById('auth-screen'),
-            app: document.getElementById('main-interface'),
-            chat: document.getElementById('chat-scroller'),
-            input: document.getElementById('msg-input'),
-            btnSend: document.getElementById('btn-send'),
-            btnMic: document.getElementById('btn-mic'),
-            micIcon: document.getElementById('mic-icon'),
-            pName: document.getElementById('p-name'),
-            pStatus: document.getElementById('p-status'),
-            visualizer: document.getElementById('audio-visualizer')
+        const dom = {
+            login: document.getElementById('login-view'),
+            app: document.getElementById('main-view'),
+            chat: document.getElementById('chat-box'),
+            mic: document.getElementById('mic-btn'),
+            input: document.getElementById('chat-input'),
+            send: document.getElementById('send-btn')
         };
 
-        // --- 1. INITIALIZATION ---
-        async function initCore() {
-            const name = document.getElementById('username').value.trim();
-            const level = document.getElementById('userlevel').value;
+        // --- SESSION LOGIC ---
+        async function startSession() {
+            const name = document.getElementById('in-name').value;
+            const level = document.getElementById('in-level').value;
+            if(!name) return alert("Ismingizni kiriting!");
 
-            if(!name) return alert("Iltimos, ismingizni kiriting!");
-
-            // Ask for Media Permissions Early
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
-                });
-                localStream.getAudioTracks()[0].enabled = false; // Start muted
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                localStream.getAudioTracks()[0].enabled = false;
+                
+                document.getElementById('my-name-display').innerText = name;
+                document.getElementById('my-avatar').innerText = name[0].toUpperCase();
+                
+                dom.login.classList.add('hidden');
+                dom.app.classList.remove('hidden');
+                
+                socket.emit('register_user', { name, level });
             } catch (e) {
-                return alert("Mikrofon ruxsati zarur!");
+                alert("Mikrofonga ruxsat bermasangiz ovoz ishlamaydi!");
             }
-
-            // Update UI
-            document.getElementById('my-name').innerText = name;
-            document.getElementById('my-avatar').innerText = name[0].toUpperCase();
-            
-            gsap.to(ui.auth, { opacity: 0, duration: 0.8, onComplete: () => {
-                ui.auth.classList.add('hidden');
-                ui.app.classList.remove('hidden');
-                gsap.from(ui.app, { scale: 0.9, opacity: 0, duration: 1, ease: "expo.out" });
-            }});
-
-            socket.emit('register_user', { name, level });
         }
 
-        // --- 2. MATCHMAKING & WEBRTC ---
+        // --- WEBRTC ENGINE ---
         socket.on('match_found', async (data) => {
-            myRole = data.role;
-            document.getElementById('match-loader').classList.add('hidden');
-            ui.pName.innerText = data.partner.name;
-            ui.pStatus.classList.replace('bg-slate-600', 'bg-emerald-500');
-            ui.pStatus.classList.add('animate-pulse');
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('p-name').innerText = data.partner.name;
+            document.getElementById('p-status').classList.replace('bg-slate-600', 'bg-emerald-500');
             
-            ui.input.disabled = false;
-            ui.btnSend.disabled = false;
-            ui.btnMic.disabled = false;
+            dom.input.disabled = false;
+            dom.send.disabled = false;
+            dom.mic.disabled = false;
 
-            sysMsg(`${data.partner.name} bilan bog'landingiz. Suhbatni boshlang!`);
-            
-            startWebRTC(data.role === 'caller');
+            initiateRTC(data.role === 'initiator');
         });
 
-        async function startWebRTC(isCaller) {
+        async function initiateRTC(isInitiator) {
             pc = new RTCPeerConnection({
                 iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
             });
 
-            // Stream Management
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
-            pc.ontrack = (event) => {
-                let remoteAudio = document.getElementById('remote-el');
+            pc.ontrack = (e) => {
+                let remoteAudio = document.getElementById('remote-audio');
                 if(!remoteAudio) {
                     remoteAudio = document.createElement('audio');
-                    remoteAudio.id = 'remote-el';
+                    remoteAudio.id = 'remote-audio';
                     remoteAudio.autoplay = true;
-                    document.getElementById('webrtc-bridge').appendChild(remoteAudio);
+                    document.getElementById('audio-bridge').appendChild(remoteAudio);
                 }
-                remoteAudio.srcObject = event.streams[0];
-                ui.visualizer.classList.remove('hidden');
-                startVisualizerEffect();
+                remoteAudio.srcObject = e.streams[0];
+                document.getElementById('visualizer').classList.remove('hidden');
+                animateBars();
             };
 
             pc.onicecandidate = (e) => {
                 if(e.candidate) socket.emit('signal', { candidate: e.candidate });
             };
 
-            if(isCaller) {
+            if(isInitiator) {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 socket.emit('signal', { offer });
@@ -328,115 +207,67 @@
 
         socket.on('signal', async (data) => {
             if(!pc) return;
-            if(data.offer) {
-                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                socket.emit('signal', { answer });
-            } else if(data.answer) {
-                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-            } else if(data.candidate) {
-                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-            }
+            try {
+                if(data.offer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    socket.emit('signal', { answer });
+                } else if(data.answer) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                } else if(data.candidate) {
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                }
+            } catch(e) { console.error("RTC Error", e); }
         });
 
-        // --- 3. AUDIO CONTROLS ---
-        function toggleVoice() {
-            isVoiceActive = !isVoiceActive;
-            localStream.getAudioTracks()[0].enabled = isVoiceActive;
-
-            if(isVoiceActive) {
-                ui.btnMic.classList.replace('bg-red-500/10', 'bg-emerald-500');
-                ui.btnMic.classList.replace('text-red-500', 'text-white');
-                ui.micIcon.setAttribute('data-lucide', 'mic');
-                sysMsg("Mikrofoningiz yoqildi!");
-            } else {
-                ui.btnMic.classList.replace('bg-emerald-500', 'bg-red-500/10');
-                ui.btnMic.classList.replace('text-white', 'text-red-500');
-                ui.micIcon.setAttribute('data-lucide', 'mic-off');
-            }
+        // --- CONTROLS ---
+        function toggleMic() {
+            isMuted = !isMuted;
+            localStream.getAudioTracks()[0].enabled = !isMuted;
+            
+            const icon = document.getElementById('mic-icon');
+            dom.mic.className = isMuted ? 
+                "w-14 h-14 rounded-2xl bg-red-500/20 text-red-500 flex items-center justify-center border border-red-500/30" : 
+                "w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40";
+            
+            icon.setAttribute('data-lucide', isMuted ? 'mic-off' : 'mic');
             lucide.createIcons();
         }
 
-        // --- 4. MESSAGE ENGINE ---
-        function handleSend() {
-            const val = ui.input.value.trim();
+        function sendMsg() {
+            const val = dom.input.value.trim();
             if(!val) return;
-
             socket.emit('message', val);
-            appendMsg('Siz', val, true);
-            ui.input.value = '';
+            addMessage('Siz', val, true);
+            dom.input.value = '';
         }
 
-        ui.input.addEventListener('keypress', (e) => e.key === 'Enter' && handleSend());
+        socket.on('message', d => addMessage(d.user, d.text, false));
 
-        socket.on('message', (d) => appendMsg(d.sender, d.text, false));
-
-        function appendMsg(who, text, isMe) {
-            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        function addMessage(user, text, isMe) {
             const html = `
-                <div class="flex ${isMe ? 'justify-end' : 'justify-start'} msg-anim">
-                    <div class="max-w-[75%] space-y-1">
-                        <div class="flex items-center gap-2 ${isMe ? 'flex-row-reverse' : ''}">
-                            <span class="text-[10px] font-black text-slate-500 uppercase tracking-tighter">${who}</span>
-                            <span class="text-[10px] text-slate-700">${time}</span>
-                        </div>
-                        <div class="p-5 rounded-[24px] ${isMe ? 'bg-indigo-600 text-white rounded-tr-none shadow-xl shadow-indigo-600/20' : 'bg-slate-900 border border-white/5 rounded-tl-none text-slate-200'}">
-                            <p class="text-[15px] leading-relaxed">${text}</p>
-                        </div>
+                <div class="flex ${isMe ? 'justify-end' : 'justify-start'} msg-bubble">
+                    <div class="max-w-[70%] ${isMe ? 'bg-indigo-600 text-white rounded-t-3xl rounded-bl-3xl' : 'bg-slate-900 text-slate-200 rounded-t-3xl rounded-br-3xl'} p-5 shadow-xl">
+                        <p class="text-[10px] opacity-50 mb-1 font-bold">${user}</p>
+                        <p class="text-sm leading-relaxed">${text}</p>
                     </div>
-                </div>
-            `;
-            ui.chat.insertAdjacentHTML('beforeend', html);
-            ui.chat.scrollTop = ui.chat.scrollHeight;
+                </div>`;
+            dom.chat.insertAdjacentHTML('beforeend', html);
+            dom.chat.scrollTop = dom.chat.scrollHeight;
         }
 
-        function sysMsg(txt) {
-            const html = `<div class="flex justify-center"><span class="bg-white/5 px-4 py-1 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest">${txt}</span></div>`;
-            ui.chat.insertAdjacentHTML('beforeend', html);
-        }
-
-        // --- 5. VISUAL EFFECTS ---
-        function startVisualizerEffect() {
-            const bars = document.querySelectorAll('.wave-bar');
+        function animateBars() {
+            const bars = document.querySelectorAll('.audio-bar');
             setInterval(() => {
-                bars.forEach(bar => {
-                    const h = Math.random() * 20 + 5;
-                    bar.style.height = h + 'px';
-                });
+                bars.forEach(b => { b.style.height = (Math.random() * 20 + 5) + 'px'; });
             }, 100);
         }
 
-        // Particles Background
-        const canvas = document.getElementById('video-canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        
-        const particles = [];
-        for(let i=0; i<50; i++) particles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, r: Math.random()*2+1, dx: Math.random()*0.5, dy: Math.random()*0.5 });
-
-        function draw() {
-            ctx.clearRect(0,0,canvas.width, canvas.height);
-            ctx.fillStyle = "#6366f1";
-            particles.forEach(p => {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-                ctx.fill();
-                p.x += p.dx; p.y += p.dy;
-                if(p.x > canvas.width) p.x = 0;
-                if(p.y > canvas.height) p.y = 0;
-            });
-            requestAnimationFrame(draw);
-        }
-        draw();
-
-        socket.on('partner_disconnected', () => {
-            ui.pStatus.classList.replace('bg-emerald-500', 'bg-red-500');
-            ui.pName.innerText = "Aloqa uzildi";
-            ui.input.disabled = true;
-            ui.btnSend.disabled = true;
-            sysMsg("Hamkor tark etdi. Yangi suhbat uchun sahifani yangilang.");
+        socket.on('partner_offline', () => {
+            document.getElementById('p-name').innerText = "Suhbatdosh tark etdi";
+            document.getElementById('p-status').classList.replace('bg-emerald-500', 'bg-red-500');
+            dom.input.disabled = true;
             if(pc) pc.close();
         });
     </script>
